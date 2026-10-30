@@ -3,7 +3,7 @@ import numpy as np
 import pandas as pd
 from scipy.stats import poisson
 import requests
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 st.set_page_config(page_title="Football Quant & Match Operations Center", layout="wide")
 
@@ -103,6 +103,7 @@ if "current_fixture_index" not in st.session_state:
 views_list = [
     "📅 Fixtures & League Monitor",
     "⚡ Quant Odds Simulator",
+    "🟢 7-Day Live Tracker & Hit-Rate Audit",
     "📈 Model Accuracy & Evaluation",
     "🎯 5-Year Market Benchmark & Top 2 Selection"
 ]
@@ -154,10 +155,10 @@ def fetch_five_year_archive(div_code):
             continue
     return pd.DataFrame(records)
 
-@st.cache_data(ttl=600)
+@st.cache_data(ttl=300)
 def fetch_live_league_bundle(code):
     standings_url = f"https://api.football-data.org/v4/competitions/{code}/standings"
-    fixtures_url = f"https://api.football-data.org/v4/competitions/{code}/matches?status=SCHEDULED,TIMED"
+    fixtures_url = f"https://api.football-data.org/v4/competitions/{code}/matches?status=SCHEDULED,TIMED,IN_PLAY,PAUSED"
     finished_url = f"https://api.football-data.org/v4/competitions/{code}/matches?status=FINISHED"
 
     std_resp = requests.get(standings_url, headers=HEADERS)
@@ -172,8 +173,10 @@ def fetch_live_league_bundle(code):
     fixtures = fix_resp.json().get("matches", []) if fix_resp.status_code == 200 else []
     
     live_records = []
+    raw_finished_matches = []
     if fin_resp.status_code == 200:
-        for m in fin_resp.json().get("matches", []):
+        raw_finished_matches = fin_resp.json().get("matches", [])
+        for m in raw_finished_matches:
             sc = m.get("score", {}).get("fullTime", {})
             hg = sc.get("home")
             ag = sc.get("away")
@@ -192,10 +195,10 @@ def fetch_live_league_bundle(code):
                     "match_date": dt_obj,
                     "season_group": "2526_Current"
                 })
-    return standings, fixtures, pd.DataFrame(live_records)
+    return standings, fixtures, pd.DataFrame(live_records), raw_finished_matches
 
 historical_5yr_df = fetch_five_year_archive(csv_div)
-standings_data, scheduled_data, live_current_df = fetch_live_league_bundle(league_code)
+standings_data, scheduled_data, live_current_df, raw_finished = fetch_live_league_bundle(league_code)
 
 if not historical_5yr_df.empty and not live_current_df.empty:
     master_warehouse = pd.concat([historical_5yr_df, live_current_df], ignore_index=True)
@@ -296,6 +299,68 @@ def dixon_coles_tau(x, y, lh, ma, rho=-0.11):
     else:
         return 1.0
 
+# HELPER FUNCTION TO GET TOP 2 PICKS FOR ANY MATCHUP
+def get_match_twin_picks(h_team, a_team, is_neutral=False):
+    if ratings_df is None or h_team not in ratings_df.index or a_team not in ratings_df.index:
+        return ("Over 1.5 Goals", 0.75, "Over 1.5 Goals"), (f"{h_team} Win", 0.50, "Home Win")
+
+    elo_h = ratings_df.loc[h_team, "elo"]
+    elo_a = ratings_df.loc[a_team, "elo"]
+    elo_diff = (elo_h - elo_a) / 400.0
+
+    elo_mult_h = float(10.0 ** ((elo_diff / 2.5) * 0.45))
+    elo_mult_a = float(10.0 ** ((-elo_diff / 2.5) * 0.45))
+
+    home_boost = ratings_df.loc[h_team, "home_adv"] if not is_neutral else 1.0
+    away_drag = (1.0 / home_boost) if not is_neutral else 1.0
+
+    h_att = ratings_df.loc[h_team, "att"]
+    h_def = ratings_df.loc[h_team, "def"]
+    a_att = ratings_df.loc[a_team, "att"]
+    a_def = ratings_df.loc[a_team, "def"]
+
+    lh = float(max(h_att * a_def * league_avg_xg * home_boost * elo_mult_h, 0.15))
+    ma = float(max(a_att * h_def * league_avg_xga * away_drag * elo_mult_a, 0.15))
+
+    max_g = 10
+    grid = np.zeros((max_g, max_g))
+    for i in range(max_g):
+        for j in range(max_g):
+            base_p = poisson.pmf(i, lambda_h) * poisson.pmf(j, ma)
+            tau = dixon_coles_tau(i, j, lambda_h, ma, rho=-0.11)
+            grid[i][j] = max(base_p * tau, 0.0)
+
+    grid = grid / np.sum(grid)
+
+    p_h = float(np.sum(np.tril(grid, -1)))
+    p_a = float(np.sum(np.triu(grid, 1)))
+    p_o15 = float(sum(grid[i][j] for i in range(max_g) for j in range(max_g) if i + j > 1.5))
+    p_u25 = 1.0 - float(sum(grid[i][j] for i in range(max_g) for j in range(max_g) if i + j > 2.5))
+    p_o25 = 1.0 - p_u25
+    p_btts = float(sum(grid[i][j] for i in range(1, max_g) for j in range(1, max_g)))
+
+    pool = [
+        {"name": "Over 1.5 Goals", "prob": p_o15, "edge": p_o15 - 0.74, "code": "O15"},
+        {"name": "Under 2.5 Goals", "prob": p_u25, "edge": p_u25 - 0.48, "code": "U25"},
+        {"name": "Over 2.5 Goals", "prob": p_o25, "edge": p_o25 - 0.52, "code": "O25"},
+        {"name": f"{h_team} Win", "prob": p_h, "edge": p_h - 0.44, "code": "1"},
+        {"name": f"{a_team} Win", "prob": p_a, "edge": p_a - 0.32, "code": "2"},
+        {"name": "Both Teams To Score (BTTS)", "prob": p_btts, "edge": p_btts - 0.51, "code": "BTTS"},
+    ]
+    ranked = sorted(pool, key=lambda x: (x["edge"], x["prob"]), reverse=True)
+    return (ranked[0]["name"], ranked[0]["prob"], ranked[0]["code"]), (ranked[1]["name"], ranked[1]["prob"], ranked[1]["code"])
+
+# CHECK IF AN ACTUAL FINISHED SCORE MATCHES THE TARGET PICK CODE
+def verify_pick_hit(code, hg, ag):
+    tot = hg + ag
+    if code == "O15": return tot > 1.5
+    if code == "U25": return tot < 2.5
+    if code == "O25": return tot > 2.5
+    if code == "1": return hg > ag
+    if code == "2": return ag > hg
+    if code == "BTTS": return hg > 0 and ag > 0
+    return False
+
 # ==============================================================================
 # VIEW 1: FIXTURES & LEAGUE MONITOR
 # ==============================================================================
@@ -343,10 +408,9 @@ if st.session_state.app_view == "📅 Fixtures & League Monitor":
         st.dataframe(pd.DataFrame(rows), hide_index=True, use_container_width=True)
 
 # ==============================================================================
-# VIEW 2: QUANT ODDS SIMULATOR (WITH NEXT FIXTURE NAVIGATION BUTTON)
+# VIEW 2: QUANT ODDS SIMULATOR
 # ==============================================================================
 elif st.session_state.app_view == "⚡ Quant Odds Simulator":
-    # TOP HEADER CONTROLS: BACK BUTTON (LEFT) AND NEXT FIXTURE BUTTON (RIGHT)
     top_col1, top_col2, top_col3 = st.columns([3, 4, 3])
     with top_col1:
         if st.button("← Back to Fixtures & Monitoring"):
@@ -403,7 +467,6 @@ elif st.session_state.app_view == "⚡ Quant Odds Simulator":
     lambda_h = float(max(h_att * a_def * league_avg_xg * home_boost * elo_mult_h, 0.15))
     mu_a = float(max(a_att * h_def * league_avg_xga * away_drag * elo_mult_a, 0.15))
 
-    # Bivariate Dixon-Coles Matrix
     max_g = 10
     grid = np.zeros((max_g, max_g))
     for i in range(max_g):
@@ -431,8 +494,8 @@ elif st.session_state.app_view == "⚡ Quant Odds Simulator":
     a_se = ratings_df.loc[away_team, "uncertainty_se"] if away_team in ratings_df.index else 0.15
     match_uncertainty = float((h_se + a_se) / 2.0 * 10.0)
 
-    def calculate_kelly(prob, fair_odds, implied_bookmaker_odds=None):
-        b_odds = implied_bookmaker_odds if implied_bookmaker_odds else (fair_odds * 0.94)
+    def calculate_kelly(prob, fair_odds):
+        b_odds = fair_odds * 0.94
         b = b_odds - 1.0
         q = 1.0 - prob
         full_kelly = (b * prob - q) / max(b, 0.01)
@@ -513,7 +576,125 @@ elif st.session_state.app_view == "⚡ Quant Odds Simulator":
                      hide_index=True, use_container_width=True)
 
 # ==============================================================================
-# VIEW 3: MODEL ACCURACY & EVALUATION
+# VIEW 3: 7-DAY REAL-TIME TRACKER & HIT-RATE AUDIT
+# ==============================================================================
+elif st.session_state.app_view == "🟢 7-Day Live Tracker & Hit-Rate Audit":
+    st.title(f"🟢 7-Day Live Match Tracker & Accuracy Verification ({selected_league_label})")
+    st.caption("Matches scheduled and finished ±7 days from today. Primary (50%) & Secondary (50%) picks audited in real time.")
+
+    now_utc = datetime.now(timezone.utc)
+    one_week_ago = now_utc - timedelta(days=7)
+    one_week_ahead = now_utc + timedelta(days=7)
+
+    # Collect matches falling within ±7 days
+    target_matches = []
+    
+    # 1. Finished matches in the window
+    for m in raw_finished:
+        utc_dt = pd.to_datetime(m.get("utcDate"))
+        if utc_dt.tzinfo is None:
+            utc_dt = utc_dt.tz_localize(timezone.utc)
+        else:
+            utc_dt = utc_dt.tz_convert(timezone.utc)
+        if one_week_ago <= utc_dt <= one_week_ahead:
+            sc = m.get("score", {}).get("fullTime", {})
+            target_matches.append({
+                "status": "FINISHED",
+                "date": utc_dt,
+                "home": standardize_name(m.get("homeTeam", {}).get("name")),
+                "away": standardize_name(m.get("awayTeam", {}).get("name")),
+                "hg": sc.get("home"),
+                "ag": sc.get("away")
+            })
+
+    # 2. Upcoming matches in the window
+    for m in scheduled_data:
+        utc_dt = pd.to_datetime(m.get("utcDate"))
+        if utc_dt.tzinfo is None:
+            utc_dt = utc_dt.tz_localize(timezone.utc)
+        else:
+            utc_dt = utc_dt.tz_convert(timezone.utc)
+        if one_week_ago <= utc_dt <= one_week_ahead:
+            target_matches.append({
+                "status": m.get("status", "SCHEDULED"),
+                "date": utc_dt,
+                "home": standardize_name(m.get("homeTeam", {}).get("name")),
+                "away": standardize_name(m.get("awayTeam", {}).get("name")),
+                "hg": None,
+                "ag": None
+            })
+
+    target_matches = sorted(target_matches, key=lambda x: x["date"])
+
+    if not target_matches:
+        st.info("No matches found within the 7-day window for this competition.")
+    else:
+        completed_evaluated = 0
+        total_score_points = 0.0
+        p1_hits = 0
+        p2_hits = 0
+        audit_rows = []
+
+        for m in target_matches:
+            ht = m["home"]
+            at = m["away"]
+            status = m["status"]
+            dt_str = m["date"].strftime("%b %d, %H:%M UTC")
+
+            (p1_name, p1_prob, p1_code), (p2_name, p2_prob, p2_code) = get_match_twin_picks(ht, at)
+
+            if status == "FINISHED" and m["hg"] is not None and m["ag"] is not None:
+                hg = int(m["hg"])
+                ag = int(m["ag"])
+                actual_result = f"{hg} - {ag}"
+
+                hit1 = verify_pick_hit(p1_code, hg, ag)
+                hit2 = verify_pick_hit(p2_code, hg, ag)
+
+                if hit1: p1_hits += 1
+                if hit2: p2_hits += 1
+
+                pts = (50.0 if hit1 else 0.0) + (50.0 if hit2 else 0.0)
+                total_score_points += pts
+                completed_evaluated += 1
+
+                score_label = f"✅ {int(pts)}%" if pts == 100 else (f"⚠️ {int(pts)}%" if pts == 50 else f"❌ {int(pts)}%")
+                p1_res = "✅ HIT" if hit1 else "❌ MISS"
+                p2_res = "✅ HIT" if hit2 else "❌ MISS"
+
+            else:
+                actual_result = "⏳ Upcoming"
+                score_label = "⏳ Pending"
+                p1_res = "⏳ Pending"
+                p2_res = "⏳ Pending"
+
+            audit_rows.append({
+                "Match Date": dt_str,
+                "Fixture": f"{ht} vs {at}",
+                "Actual Outcome": actual_result,
+                "Primary Pick (50%)": f"{p1_name} ({p1_prob:.1%})",
+                "Pick 1 Result": p1_res,
+                "Secondary Pick (50%)": f"{p2_name} ({p2_prob:.1%})",
+                "Pick 2 Result": p2_res,
+                "Match Score": score_label
+            })
+
+        overall_acc = (total_score_points / (completed_evaluated * 100.0) * 100.0) if completed_evaluated > 0 else 0.0
+        p1_acc = (p1_hits / completed_evaluated * 100.0) if completed_evaluated > 0 else 0.0
+        p2_acc = (p2_hits / completed_evaluated * 100.0) if completed_evaluated > 0 else 0.0
+
+        ak1, ak2, ak3, ak4 = st.columns(4)
+        ak1.metric("Evaluated Finished Games", f"{completed_evaluated}")
+        ak2.metric("Combined Model Accuracy", f"{overall_acc:.1f}%")
+        ak3.metric("Primary Pick Accuracy", f"{p1_acc:.1f}%")
+        ak4.metric("Secondary Pick Accuracy", f"{p2_acc:.1f}%")
+        st.divider()
+
+        st.subheader("Live Fixture-by-Fixture Verification Table")
+        st.dataframe(pd.DataFrame(audit_rows), hide_index=True, use_container_width=True)
+
+# ==============================================================================
+# VIEW 4: MODEL ACCURACY & EVALUATION (HISTORICAL SAMPLE)
 # ==============================================================================
 elif st.session_state.app_view == "📈 Model Accuracy & Evaluation":
     st.title("📈 Model Evaluation & Real-Time Performance Audit")
@@ -681,7 +862,7 @@ elif st.session_state.app_view == "📈 Model Accuracy & Evaluation":
                      hide_index=True, use_container_width=True)
 
 # ==============================================================================
-# VIEW 4: 5-YEAR MARKET BENCHMARK & TOP 2 SELECTION
+# VIEW 5: 5-YEAR MARKET BENCHMARK & TOP 2 SELECTION
 # ==============================================================================
 else:
     st.title("🎯 5-Year Empirical Market Benchmark & Top 2 Selection")
