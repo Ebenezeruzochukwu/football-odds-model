@@ -97,8 +97,8 @@ if "selected_home" not in st.session_state:
     st.session_state.selected_home = None
 if "selected_away" not in st.session_state:
     st.session_state.selected_away = None
-if "target_match_date" not in st.session_state:
-    st.session_state.target_match_date = datetime.now(timezone.utc)
+if "current_fixture_index" not in st.session_state:
+    st.session_state.current_fixture_index = 0
 
 views_list = [
     "📅 Fixtures & League Monitor",
@@ -206,7 +206,6 @@ else:
 
 master_warehouse = master_warehouse.sort_values("match_date").reset_index(drop=True)
 
-# --- ADVANCED QUANT RATING ENGINE: MATCH-INDEX DECAY & DIXON-COLES PRIOR ---
 def compute_master_ratings(warehouse_df):
     if warehouse_df.empty:
         return pd.DataFrame(), 1.45, 1.15, 0
@@ -214,7 +213,6 @@ def compute_master_ratings(warehouse_df):
     teams = sorted(list(set(warehouse_df["home_team"].unique()).union(set(warehouse_df["away_team"].unique()))))
     team_stats = []
     
-    # Calculate baseline league averages
     total_g_home = warehouse_df["home_goals"].sum()
     total_g_away = warehouse_df["away_goals"].sum()
     lg_avg_h = total_g_home / len(warehouse_df)
@@ -223,13 +221,10 @@ def compute_master_ratings(warehouse_df):
     for t in teams:
         t_games = warehouse_df[(warehouse_df["home_team"] == t) | (warehouse_df["away_team"] == t)].sort_values("match_date")
         n_games = len(t_games)
-        
         if n_games == 0:
             continue
 
-        # FIX 13: Decay based on match sequence index (game N, N-1), not calendar days (bypasses summer break distortions)
         indices = np.arange(n_games)
-        # Most recent match has index (n_games - 1), decay lambda = 0.035 per match played
         weights = np.exp(-0.035 * (n_games - 1 - indices))
 
         att_scores = []
@@ -248,16 +243,13 @@ def compute_master_ratings(warehouse_df):
 
         att_arr = np.array(att_scores)
         def_arr = np.array(def_scores)
-
         w_sum = np.sum(weights)
         weighted_att = np.sum(att_arr * weights) / w_sum
         weighted_def = np.sum(def_arr * weights) / w_sum
 
-        # FIX 4 & 5: Elo-informed prior target (promoted teams anchored lower, elite anchored higher)
         team_elo = POWER_INDEX.get(t, 1470 if n_games < 30 else 1550)
         elo_scalar = (team_elo - 1500) / 400.0
         
-        # Bayesian shrinkage target informed by club pedigree
         prior_att_target = (lg_avg_h + lg_avg_a) / 2.0 + (elo_scalar * 0.40)
         prior_def_target = (lg_avg_h + lg_avg_a) / 2.0 - (elo_scalar * 0.35)
 
@@ -265,7 +257,6 @@ def compute_master_ratings(warehouse_df):
         shrunk_att = (weighted_att * w_sum + prior_k * prior_att_target) / (w_sum + prior_k)
         shrunk_def = (weighted_def * w_sum + prior_k * prior_def_target) / (w_sum + prior_k)
 
-        # FIX 7: Club-specific Home Advantage Ratio
         home_games_idx = [i for i, h in enumerate(is_home_flags) if h]
         away_games_idx = [i for i, h in enumerate(is_home_flags) if not h]
 
@@ -274,9 +265,8 @@ def compute_master_ratings(warehouse_df):
             a_att_perf = np.mean(att_arr[away_games_idx])
             home_adv_ratio = float(np.clip(h_att_perf / max(a_att_perf, 0.5), 1.05, 1.30))
         else:
-            home_adv_ratio = 1.15  # Default baseline for small samples
+            home_adv_ratio = 1.15
 
-        # FIX 16: Uncertainty estimation (Standard Error based on sample size)
         att_variance = np.var(att_arr) if n_games > 1 else 0.5
         uncertainty_se = float(np.sqrt(att_variance / max(n_games, 1)))
 
@@ -294,7 +284,6 @@ def compute_master_ratings(warehouse_df):
 
 ratings_df, league_avg_xg, league_avg_xga, total_master_matches = compute_master_ratings(master_warehouse)
 
-# FIX 8: Dixon-Coles Tau Adjustment Function for Low-Score Matrix Correction
 def dixon_coles_tau(x, y, lh, ma, rho=-0.11):
     if x == 0 and y == 0:
         return 1.0 - (lh * ma * rho)
@@ -331,7 +320,6 @@ if st.session_state.app_view == "📅 Fixtures & League Monitor":
             utc_str = m.get("utcDate", "")
             h_name = standardize_name(m.get("homeTeam", {}).get("name"))
             a_name = standardize_name(m.get("awayTeam", {}).get("name"))
-            m_dt = pd.to_datetime(utc_str)
             time_label = f"{utc_str[:10]} | {utc_str[11:16]} UTC"
 
             col1, col2, col3 = st.columns([3, 5, 2])
@@ -341,7 +329,7 @@ if st.session_state.app_view == "📅 Fixtures & League Monitor":
                 if st.button("⚡ Simulate", key=f"sim_{idx}_{m.get('id')}"):
                     st.session_state.selected_home = h_name
                     st.session_state.selected_away = a_name
-                    st.session_state.target_match_date = m_dt
+                    st.session_state.current_fixture_index = idx
                     st.session_state.app_view = "⚡ Quant Odds Simulator"
                     st.rerun()
             st.write("---")
@@ -355,12 +343,28 @@ if st.session_state.app_view == "📅 Fixtures & League Monitor":
         st.dataframe(pd.DataFrame(rows), hide_index=True, use_container_width=True)
 
 # ==============================================================================
-# VIEW 2: QUANT ODDS SIMULATOR (DIXON-COLES + KELLY CRITERION + UNCERTAINTY)
+# VIEW 2: QUANT ODDS SIMULATOR (WITH NEXT FIXTURE NAVIGATION BUTTON)
 # ==============================================================================
 elif st.session_state.app_view == "⚡ Quant Odds Simulator":
-    if st.button("← Back to Fixtures & Monitoring"):
-        st.session_state.app_view = "📅 Fixtures & League Monitor"
-        st.rerun()
+    # TOP HEADER CONTROLS: BACK BUTTON (LEFT) AND NEXT FIXTURE BUTTON (RIGHT)
+    top_col1, top_col2, top_col3 = st.columns([3, 4, 3])
+    with top_col1:
+        if st.button("← Back to Fixtures & Monitoring"):
+            st.session_state.app_view = "📅 Fixtures & League Monitor"
+            st.rerun()
+
+    with top_col3:
+        if scheduled_data:
+            next_idx = (st.session_state.current_fixture_index + 1) % len(scheduled_data)
+            next_m = scheduled_data[next_idx]
+            next_h = standardize_name(next_m.get("homeTeam", {}).get("name"))
+            next_a = standardize_name(next_m.get("awayTeam", {}).get("name"))
+            
+            if st.button(f"Next Match: {next_h[:10]} vs {next_a[:10]} ⏭️"):
+                st.session_state.selected_home = next_h
+                st.session_state.selected_away = next_a
+                st.session_state.current_fixture_index = next_idx
+                st.rerun()
 
     st.title("⚡ Quantitative Match Odds Simulator")
 
@@ -381,7 +385,6 @@ elif st.session_state.app_view == "⚡ Quant Odds Simulator":
     with c_s3:
         is_neutral = st.checkbox("Neutral Venue", value=(league_code == "CL"))
 
-    # Elo Differential & Team Parameters
     elo_h = ratings_df.loc[home_team, "elo"] if home_team in ratings_df.index else 1500
     elo_a = ratings_df.loc[away_team, "elo"] if away_team in ratings_df.index else 1500
     elo_diff = (elo_h - elo_a) / 400.0
@@ -409,7 +412,6 @@ elif st.session_state.app_view == "⚡ Quant Odds Simulator":
             tau = dixon_coles_tau(i, j, lambda_h, mu_a, rho=-0.11)
             grid[i][j] = max(base_p * tau, 0.0)
 
-    # Normalize matrix to strictly sum to 100%
     grid = grid / np.sum(grid)
 
     p_h = float(np.sum(np.tril(grid, -1)))
@@ -425,18 +427,16 @@ elif st.session_state.app_view == "⚡ Quant Odds Simulator":
     h_sample = ratings_df.loc[home_team, "sample_size"] if home_team in ratings_df.index else 0
     a_sample = ratings_df.loc[away_team, "sample_size"] if away_team in ratings_df.index else 0
     
-    # FIX 16: Credible Interval Uncertainty Bounds (+/- %)
     h_se = ratings_df.loc[home_team, "uncertainty_se"] if home_team in ratings_df.index else 0.15
     a_se = ratings_df.loc[away_team, "uncertainty_se"] if away_team in ratings_df.index else 0.15
-    match_uncertainty = float((h_se + a_se) / 2.0 * 10.0)  # Bound percentage
+    match_uncertainty = float((h_se + a_se) / 2.0 * 10.0)
 
-    # FIX 17: Fractional Kelly Staking Calculation Function (Quarter Kelly)
     def calculate_kelly(prob, fair_odds, implied_bookmaker_odds=None):
-        b_odds = implied_bookmaker_odds if implied_bookmaker_odds else (fair_odds * 0.94)  # assumes standard 6% bookie margin
+        b_odds = implied_bookmaker_odds if implied_bookmaker_odds else (fair_odds * 0.94)
         b = b_odds - 1.0
         q = 1.0 - prob
         full_kelly = (b * prob - q) / max(b, 0.01)
-        quarter_kelly = max(0.0, (full_kelly * 0.25) * 100.0)  # Safe quarter-kelly bankroll %
+        quarter_kelly = max(0.0, (full_kelly * 0.25) * 100.0)
         return quarter_kelly, b_odds
 
     pick_pool = [
@@ -449,7 +449,6 @@ elif st.session_state.app_view == "⚡ Quant Odds Simulator":
     ]
     ranked_picks = sorted(pick_pool, key=lambda x: (x["edge"], x["prob"]), reverse=True)[:2]
 
-    # TOP 2 PICKS WITH FRACTIONAL KELLY STAKING & CONFIDENCE BOUNDS
     st.subheader("🎯 Algorithm's Top 2 High-Conviction Match Picks")
     pcol1, pcol2 = st.columns(2)
     
