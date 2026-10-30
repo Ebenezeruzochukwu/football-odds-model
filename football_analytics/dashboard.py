@@ -302,7 +302,7 @@ def dixon_coles_tau(x, y, lh, ma, rho=-0.11):
 # HELPER FUNCTION TO GET TOP 2 PICKS FOR ANY MATCHUP
 def get_match_twin_picks(h_team, a_team, is_neutral=False):
     if ratings_df is None or h_team not in ratings_df.index or a_team not in ratings_df.index:
-        return ("Over 1.5 Goals", 0.75, "Over 1.5 Goals"), (f"{h_team} Win", 0.50, "Home Win")
+        return ("Over 1.5 Goals", 0.75, "O15"), (f"{h_team} Win", 0.50, "1")
 
     elo_h = ratings_df.loc[h_team, "elo"]
     elo_a = ratings_df.loc[a_team, "elo"]
@@ -326,8 +326,8 @@ def get_match_twin_picks(h_team, a_team, is_neutral=False):
     grid = np.zeros((max_g, max_g))
     for i in range(max_g):
         for j in range(max_g):
-            base_p = poisson.pmf(i, lambda_h) * poisson.pmf(j, ma)
-            tau = dixon_coles_tau(i, j, lambda_h, ma, rho=-0.11)
+            base_p = poisson.pmf(i, lh) * poisson.pmf(j, ma)
+            tau = dixon_coles_tau(i, j, lh, ma, rho=-0.11)
             grid[i][j] = max(base_p * tau, 0.0)
 
     grid = grid / np.sum(grid)
@@ -350,7 +350,6 @@ def get_match_twin_picks(h_team, a_team, is_neutral=False):
     ranked = sorted(pool, key=lambda x: (x["edge"], x["prob"]), reverse=True)
     return (ranked[0]["name"], ranked[0]["prob"], ranked[0]["code"]), (ranked[1]["name"], ranked[1]["prob"], ranked[1]["code"])
 
-# CHECK IF AN ACTUAL FINISHED SCORE MATCHES THE TARGET PICK CODE
 def verify_pick_hit(code, hg, ag):
     tot = hg + ag
     if code == "O15": return tot > 1.5
@@ -586,10 +585,8 @@ elif st.session_state.app_view == "🟢 7-Day Live Tracker & Hit-Rate Audit":
     one_week_ago = now_utc - timedelta(days=7)
     one_week_ahead = now_utc + timedelta(days=7)
 
-    # Collect matches falling within ±7 days
     target_matches = []
     
-    # 1. Finished matches in the window
     for m in raw_finished:
         utc_dt = pd.to_datetime(m.get("utcDate"))
         if utc_dt.tzinfo is None:
@@ -607,7 +604,6 @@ elif st.session_state.app_view == "🟢 7-Day Live Tracker & Hit-Rate Audit":
                 "ag": sc.get("away")
             })
 
-    # 2. Upcoming matches in the window
     for m in scheduled_data:
         utc_dt = pd.to_datetime(m.get("utcDate"))
         if utc_dt.tzinfo is None:
