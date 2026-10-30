@@ -27,6 +27,55 @@ CSV_LEAGUE_MAP = {
     "FL1": "F1"
 }
 
+# Standardized club name mapping between football-data.co.uk CSVs and football-data.org API
+NAME_STANDARDIZATION = {
+    "Man City": "Manchester City FC", "Man United": "Manchester United FC", "Arsenal": "Arsenal FC",
+    "Liverpool": "Liverpool FC", "Chelsea": "Chelsea FC", "Tottenham": "Tottenham Hotspur FC",
+    "Newcastle": "Newcastle United FC", "Aston Villa": "Aston Villa FC", "Brighton": "Brighton & Hove Albion FC",
+    "Brentford": "Brentford FC", "Fulham": "Fulham FC", "Bournemouth": "AFC Bournemouth",
+    "Crystal Palace": "Crystal Palace FC", "West Ham": "West Ham United FC", "Everton": "Everton FC",
+    "Wolves": "Wolverhampton Wanderers FC", "Nott'm Forest": "Nottingham Forest FC", "Leicester": "Leicester City FC",
+    "Ipswich": "Ipswich Town FC", "Southampton": "Southampton FC", "Luton": "Luton Town FC", "Burnley": "Burnley FC",
+    "Sheffield United": "Sheffield United FC", "Leeds": "Leeds United FC",
+    
+    # La Liga
+    "Real Madrid": "Real Madrid CF", "Barcelona": "FC Barcelona", "Ath Madrid": "Club Atlético de Madrid",
+    "Ath Bilbao": "Athletic Club", "Sociedad": "Real Sociedad de Fútbol", "Betis": "Real Betis Balompié",
+    "Villarreal": "Villarreal CF", "Girona": "Girona FC", "Sevilla": "Sevilla FC", "Valencia": "Valencia CF",
+    "Celta": "RC Celta de Vigo", "Osasuna": "CA Osasuna", "Mallorca": "RCD Mallorca", "Getafe": "Getafe CF",
+    "Las Palmas": "UD Las Palmas", "Vallecano": "Rayo Vallecano de Madrid", "Alaves": "Deportivo Alavés",
+    "Leganes": "CD Leganés", "Valladolid": "Real Valladolid CF", "Espanol": "RCD Espanyol de Barcelona",
+    "Cadiz": "Cádiz CF", "Granada": "Granada CF", "Almeria": "UD Almería",
+
+    # Serie A
+    "Napoli": "SSC Napoli", "Inter": "FC Internazionale Milano", "Juventus": "Juventus FC", "Milan": "AC Milan",
+    "Atalanta": "Atalanta BC", "Lazio": "SS Lazio", "Roma": "AS Roma", "Monza": "AC Monza", "Empoli": "Empoli FC",
+    "Venezia": "Venezia FC", "Parma": "Parma Calcio 1913", "Como": "Como 1907", "Cagliari": "Cagliari Calcio",
+    "Verona": "Hellas Verona FC", "Lecce": "US Lecce", "Udinese": "Udinese Calcio", "Torino": "Torino FC",
+    "Bologna": "Bologna FC 1909", "Fiorentina": "ACF Fiorentina", "Genoa": "Genoa CFC", "Salernitana": "US Salernitana 1919",
+    "Sassuolo": "US Sassuolo Calcio", "Frosinone": "Frosinone Calcio",
+
+    # Bundesliga
+    "Bayern Munich": "FC Bayern München", "Leverkusen": "Bayer 04 Leverkusen", "Dortmund": "Borussia Dortmund",
+    "RB Leipzig": "RB Leipzig", "Ein Frankfurt": "Eintracht Frankfurt", "Stuttgart": "VfB Stuttgart",
+    "Freiburg": "Sport-Club Freiburg", "Wolfsburg": "VfL Wolfsburg", "M'gladbach": "Borussia Mönchengladbach",
+    "Union Berlin": "1. FC Union Berlin", "Hoffenheim": "TSG 1899 Hoffenheim", "Werder Bremen": "SV Werder Bremen",
+    "Heidenheim": "1. FC Heidenheim 1846", "Augsburg": "FC Augsburg", "Mainz": "1. FSV Mainz 05",
+    "St Pauli": "FC St. Pauli 1910", "Bochum": "VfL Bochum 1848", "Holstein Kiel": "Holstein Kiel",
+
+    # Ligue 1
+    "Paris SG": "Paris Saint-Germain FC", "Monaco": "AS Monaco FC", "Marseille": "Olympique de Marseille",
+    "Lille": "Lille OSC", "Lyon": "Olympique Lyonnais", "Nice": "OGC Nice", "Rennes": "Stade Rennais FC 1904",
+    "Lens": "Racing Club de Lens", "Reims": "Stade de Reims", "Brest": "Stade Brestois 29",
+    "Toulouse": "Toulouse FC", "Strasbourg": "RC Strasbourg Alsace", "Montpellier": "Montpellier HSC",
+    "Nantes": "FC Nantes", "Auxerre": "AJ Auxerre", "Angers": "Angers SCO", "Le Havre": "Le Havre AC",
+    "St Etienne": "AS Saint-Étienne"
+}
+
+def standardize_name(raw_name):
+    clean = str(raw_name).strip()
+    return NAME_STANDARDIZATION.get(clean, clean)
+
 POWER_INDEX = {
     "Manchester City FC": 1950, "Arsenal FC": 1920, "Liverpool FC": 1910, "Chelsea FC": 1790,
     "Newcastle United FC": 1770, "Tottenham Hotspur FC": 1780, "Manchester United FC": 1740,
@@ -34,13 +83,6 @@ POWER_INDEX = {
     "Fulham FC": 1640, "AFC Bournemouth": 1640, "Crystal Palace FC": 1630, "West Ham United FC": 1650,
     "Everton FC": 1610, "Wolverhampton Wanderers FC": 1610, "Nottingham Forest FC": 1620,
     "Leicester City FC": 1570, "Ipswich Town FC": 1530, "Southampton FC": 1520,
-    "Coventry City FC": 1490, "Sunderland AFC": 1510, "Hull City AFC": 1480, "Leeds United FC": 1580,
-    
-    "SSC Napoli": 1820, "FC Internazionale Milano": 1880, "Juventus FC": 1810, "AC Milan": 1800,
-    "Atalanta BC": 1790, "SS Lazio": 1740, "AS Roma": 1740, "AC Monza": 1560, "Empoli FC": 1540,
-    "Venezia FC": 1490, "Parma Calcio 1913": 1520, "Como 1907": 1510, "Cagliari Calcio": 1520,
-    "Hellas Verona FC": 1530, "US Lecce": 1510, "Udinese Calcio": 1580, "Torino FC": 1640,
-    "Bologna FC 1909": 1680, "ACF Fiorentina": 1720, "Genoa CFC": 1570,
 
     "Real Madrid CF": 1960, "FC Barcelona": 1930, "Club Atlético de Madrid": 1820,
     "Athletic Club": 1760, "Real Sociedad de Fútbol": 1740, "Real Betis Balompié": 1720,
@@ -49,6 +91,12 @@ POWER_INDEX = {
     "UD Las Palmas": 1580, "Rayo Vallecano de Madrid": 1600, "Deportivo Alavés": 1580,
     "CD Leganés": 1530, "Real Valladolid CF": 1520, "RCD Espanyol de Barcelona": 1540,
 
+    "SSC Napoli": 1820, "FC Internazionale Milano": 1880, "Juventus FC": 1810, "AC Milan": 1800,
+    "Atalanta BC": 1790, "SS Lazio": 1740, "AS Roma": 1740, "AC Monza": 1560, "Empoli FC": 1540,
+    "Venezia FC": 1490, "Parma Calcio 1913": 1520, "Como 1907": 1510, "Cagliari Calcio": 1520,
+    "Hellas Verona FC": 1530, "US Lecce": 1510, "Udinese Calcio": 1580, "Torino FC": 1640,
+    "Bologna FC 1909": 1680, "ACF Fiorentina": 1720, "Genoa CFC": 1570,
+
     "FC Bayern München": 1930, "Bayer 04 Leverkusen": 1870, "Borussia Dortmund": 1820,
     "RB Leipzig": 1810, "Eintracht Frankfurt": 1730, "VfB Stuttgart": 1740, "Sport-Club Freiburg": 1680,
 
@@ -56,7 +104,6 @@ POWER_INDEX = {
     "Lille OSC": 1740, "Olympique Lyonnais": 1710, "OGC Nice": 1690, "Stade Rennais FC 1904": 1670
 }
 
-# --- SESSION STATE ---
 if "app_view" not in st.session_state:
     st.session_state.app_view = "📅 Fixtures & League Monitor"
 if "selected_home" not in st.session_state:
@@ -66,7 +113,6 @@ if "selected_away" not in st.session_state:
 if "target_match_date" not in st.session_state:
     st.session_state.target_match_date = datetime.now(timezone.utc)
 
-# --- SIDEBAR NAVIGATION ---
 st.sidebar.title("Navigation & Parameters")
 views_list = [
     "📅 Fixtures & League Monitor",
@@ -89,72 +135,105 @@ st.sidebar.divider()
 
 selected_league_label = st.sidebar.selectbox("Select Competition", list(LEAGUES.keys()))
 league_code = LEAGUES[selected_league_label]
+csv_div = CSV_LEAGUE_MAP.get(league_code, "E0")
 
-# --- LIVE API DATA FETCHERS ---
+# --- DATA INGESTION: 5 HISTORICAL SEASONS + ONGOING SEASON LIVE FIXTURES ---
+@st.cache_data(ttl=86400)
+def fetch_five_year_archive(div_code):
+    seasons = ["2021", "2122", "2223", "2324", "2425"]
+    records = []
+    for s_idx, s in enumerate(seasons):
+        url = f"https://www.football-data.co.uk/mmz4281/{s}/{div_code}.csv"
+        try:
+            df = pd.read_csv(url, encoding="latin1")
+            df = df[["Date", "HomeTeam", "AwayTeam", "FTHG", "FTAG"]].dropna()
+            # Date parser accommodating both DD/MM/YY and DD/MM/YYYY
+            for _, r in df.iterrows():
+                d_str = str(r["Date"]).strip()
+                try:
+                    dt = pd.to_datetime(d_str, dayfirst=True)
+                except Exception:
+                    dt = pd.to_datetime("2022-01-01")
+                if dt.tzinfo is None:
+                    dt = dt.tz_localize(timezone.utc)
+                else:
+                    dt = dt.tz_convert(timezone.utc)
+
+                records.append({
+                    "home_team": standardize_name(r["HomeTeam"]),
+                    "away_team": standardize_name(r["AwayTeam"]),
+                    "home_goals": int(r["FTHG"]),
+                    "away_goals": int(r["FTAG"]),
+                    "match_date": dt,
+                    "season_group": s
+                })
+        except Exception:
+            continue
+    return pd.DataFrame(records)
+
 @st.cache_data(ttl=600)
-def fetch_league_standings(code):
-    url = f"https://api.football-data.org/v4/competitions/{code}/standings"
-    resp = requests.get(url, headers=HEADERS)
-    if resp.status_code != 200:
-        return []
-    tables = resp.json().get("standings", [])
-    return tables[0].get("table", []) if tables else []
+def fetch_live_league_bundle(code):
+    standings_url = f"https://api.football-data.org/v4/competitions/{code}/standings"
+    fixtures_url = f"https://api.football-data.org/v4/competitions/{code}/matches?status=SCHEDULED,TIMED"
+    finished_url = f"https://api.football-data.org/v4/competitions/{code}/matches?status=FINISHED"
 
-@st.cache_data(ttl=600)
-def fetch_scheduled_fixtures(code):
-    url = f"https://api.football-data.org/v4/competitions/{code}/matches?status=SCHEDULED,TIMED"
-    resp = requests.get(url, headers=HEADERS)
-    if resp.status_code != 200:
-        return []
-    return resp.json().get("matches", [])
+    std_resp = requests.get(standings_url, headers=HEADERS)
+    fix_resp = requests.get(fixtures_url, headers=HEADERS)
+    fin_resp = requests.get(finished_url, headers=HEADERS)
 
-@st.cache_data(ttl=1200)
-def fetch_cross_competition_matches(primary_code):
-    codes_to_fetch = list(set([primary_code, "CL", "PL", "PD", "SA", "BL1", "FL1"]))
-    all_records = []
+    standings = []
+    if std_resp.status_code == 200:
+        tb = std_resp.json().get("standings", [])
+        if tb: standings = tb[0].get("table", [])
+
+    fixtures = fix_resp.json().get("matches", []) if fix_resp.status_code == 200 else []
     
-    for c in codes_to_fetch:
-        url = f"https://api.football-data.org/v4/competitions/{c}/matches?status=FINISHED"
-        resp = requests.get(url, headers=HEADERS)
-        if resp.status_code == 200:
-            for m in resp.json().get("matches", []):
-                score = m.get("score", {}).get("fullTime", {})
-                h_g = score.get("home")
-                a_g = score.get("away")
-                utc_dt = m.get("utcDate")
-                if h_g is not None and a_g is not None and utc_dt:
-                    dt_obj = pd.to_datetime(utc_dt)
-                    if dt_obj.tzinfo is None:
-                        dt_obj = dt_obj.tz_localize(timezone.utc)
-                    else:
-                        dt_obj = dt_obj.tz_convert(timezone.utc)
-                    all_records.append({
-                        "match_id": m.get("id"),
-                        "comp": c,
-                        "home_team": m.get("homeTeam", {}).get("name"),
-                        "away_team": m.get("awayTeam", {}).get("name"),
-                        "match_date": dt_obj,
-                        "home_goals": int(h_g),
-                        "away_goals": int(a_g)
-                    })
-    df = pd.DataFrame(all_records).drop_duplicates(subset=["match_id"])
-    return df.sort_values("match_date").reset_index(drop=True)
+    live_records = []
+    if fin_resp.status_code == 200:
+        for m in fin_resp.json().get("matches", []):
+            sc = m.get("score", {}).get("fullTime", {})
+            hg = sc.get("home")
+            ag = sc.get("away")
+            utc_dt = m.get("utcDate")
+            if hg is not None and ag is not None and utc_dt:
+                dt_obj = pd.to_datetime(utc_dt)
+                if dt_obj.tzinfo is None:
+                    dt_obj = dt_obj.tz_localize(timezone.utc)
+                else:
+                    dt_obj = dt_obj.tz_convert(timezone.utc)
+                live_records.append({
+                    "home_team": standardize_name(m.get("homeTeam", {}).get("name")),
+                    "away_team": standardize_name(m.get("awayTeam", {}).get("name")),
+                    "home_goals": int(hg),
+                    "away_goals": int(ag),
+                    "match_date": dt_obj,
+                    "season_group": "2526_Current"
+                })
+    return standings, fixtures, pd.DataFrame(live_records)
 
-cross_comp_df = fetch_cross_competition_matches(league_code)
-finished_df = cross_comp_df[cross_comp_df["comp"] == league_code].copy() if not cross_comp_df.empty else pd.DataFrame()
-standings_data = fetch_league_standings(league_code)
-scheduled_data = fetch_scheduled_fixtures(league_code)
+# Combine 5-Year Archive with Current Season Live Database
+historical_5yr_df = fetch_five_year_archive(csv_div)
+standings_data, scheduled_data, live_current_df = fetch_live_league_bundle(league_code)
 
-def compute_ratings(df_finished):
-    if df_finished.empty:
-        return None, 1.45, 1.15
-    
+if not historical_5yr_df.empty and not live_current_df.empty:
+    master_warehouse = pd.concat([historical_5yr_df, live_current_df], ignore_index=True)
+elif not historical_5yr_df.empty:
+    master_warehouse = historical_5yr_df.copy()
+else:
+    master_warehouse = live_current_df.copy()
+
+master_warehouse = master_warehouse.sort_values("match_date").reset_index(drop=True)
+
+# --- UNIFIED MULTI-YEAR EXPONENTIAL TIME-DECAY FORM ENGINE ---
+def compute_master_ratings(warehouse_df):
+    if warehouse_df.empty:
+        return pd.DataFrame(), 1.45, 1.15, 0
+
     facts = []
-    for _, r in df_finished.iterrows():
+    for _, r in warehouse_df.iterrows():
         hg = int(r["home_goals"])
         ag = int(r["away_goals"])
         dt = r["match_date"]
-        
         hsot = hg + 3
         asot = ag + 2
         hxg = round(hsot * 0.32 + 0.15, 2)
@@ -166,7 +245,8 @@ def compute_ratings(df_finished):
     f_df = pd.DataFrame(facts)
     max_d = f_df["match_date"].max()
     f_df["days_ago"] = (max_d - f_df["match_date"]).dt.total_seconds() / (24 * 3600)
-    f_df["weight"] = np.exp(-0.03 * (f_df["days_ago"] / 7.0))
+    # Recency decay across multi-year matches (half-life of ~45 weeks)
+    f_df["weight"] = np.exp(-0.015 * (f_df["days_ago"] / 7.0))
 
     teams = sorted(f_df["team"].unique())
     w_tot = f_df["weight"].sum()
@@ -181,57 +261,38 @@ def compute_ratings(df_finished):
         w = grp["weight"].sum()
         txg = (grp["xg"] * grp["weight"]).sum() / w
         txga = (grp["xga"] * grp["weight"]).sum() / w
-        
-        prior_k = 4.0
+
+        prior_k = 6.0
         shrunk_att = (txg * w + prior_k * avg_xg) / (w + prior_k)
         shrunk_def = (txga * w + prior_k * avg_xga) / (w + prior_k)
 
         team_stats.append({
             "team": t,
-            "sample_size": len(grp),
+            "sample_size": len(grp),  # Exact count of multi-season games played by this club
             "att": shrunk_att / max(avg_xg, 0.1),
             "def": shrunk_def / max(avg_xga, 0.1),
             "avg_xg": round(txg, 2),
             "avg_xga": round(txga, 2)
         })
-    return pd.DataFrame(team_stats).set_index("team"), avg_xg, avg_xga
 
-ratings_df, league_avg_xg, league_avg_xga = compute_ratings(finished_df)
+    return pd.DataFrame(team_stats).set_index("team"), avg_xg, avg_xga, len(warehouse_df)
 
-@st.cache_data(ttl=86400)
-def fetch_five_year_historical_dataset(div_code):
-    seasons = ["2021", "2122", "2223", "2324", "2425"]
-    dfs = []
-    for s in seasons:
-        csv_url = f"https://www.football-data.co.uk/mmz4281/{s}/{div_code}.csv"
-        try:
-            temp_df = pd.read_csv(csv_url, encoding="latin1")
-            temp_df = temp_df[["Date", "HomeTeam", "AwayTeam", "FTHG", "FTAG"]].dropna()
-            temp_df["Season"] = s
-            dfs.append(temp_df)
-        except Exception:
-            continue
-    if dfs:
-        full_df = pd.concat(dfs, ignore_index=True)
-        full_df["FTHG"] = full_df["FTHG"].astype(int)
-        full_df["FTAG"] = full_df["FTAG"].astype(int)
-        return full_df
-    return pd.DataFrame()
+ratings_df, league_avg_xg, league_avg_xga, total_master_matches = compute_master_ratings(master_warehouse)
 
 # ==============================================================================
 # VIEW 1: FIXTURES & LEAGUE MONITOR
 # ==============================================================================
 if st.session_state.app_view == "📅 Fixtures & League Monitor":
-    st.title(f"📊 {selected_league_label} — Live Fixture Tracking")
-    
-    tot_played = len(finished_df)
+    st.title(f"📊 {selected_league_label} — Live Match Center")
+
     today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     matches_today = [m for m in scheduled_data if m.get("utcDate", "").startswith(today_str)]
-    
-    c1, c2, c3 = st.columns(3)
+
+    c1, c2, c3, c4 = st.columns(4)
     c1.metric("Scheduled Matches Today", f"{len(matches_today)}")
-    c2.metric("Total Completed Matches", f"{tot_played}")
-    c3.metric("Upcoming Matches Remaining", f"{len(scheduled_data)}")
+    c2.metric("Total Warehouse Matches", f"{total_master_matches:,} fixtures")
+    c3.metric("5-Year Historical Matches", f"{len(historical_5yr_df):,}")
+    c4.metric("Current Season Completed", f"{len(live_current_df)}")
     st.divider()
 
     st.subheader("Upcoming Fixture Schedule")
@@ -240,8 +301,8 @@ if st.session_state.app_view == "📅 Fixtures & League Monitor":
     else:
         for idx, m in enumerate(scheduled_data[:20]):
             utc_str = m.get("utcDate", "")
-            h_name = m.get("homeTeam", {}).get("name")
-            a_name = m.get("awayTeam", {}).get("name")
+            h_name = standardize_name(m.get("homeTeam", {}).get("name"))
+            a_name = standardize_name(m.get("awayTeam", {}).get("name"))
             m_dt = pd.to_datetime(utc_str)
             time_label = f"{utc_str[:10]} | {utc_str[11:16]} UTC"
 
@@ -260,14 +321,14 @@ if st.session_state.app_view == "📅 Fixtures & League Monitor":
 
     st.subheader(f"Club Standings — {selected_league_label}")
     if standings_data:
-        rows = [{"Pos": r.get("position"), "Team": r.get("team", {}).get("name"), "Played": r.get("playedGames"),
+        rows = [{"Pos": r.get("position"), "Team": standardize_name(r.get("team", {}).get("name")), "Played": r.get("playedGames"),
                  "W": r.get("won"), "D": r.get("draw"), "L": r.get("lost"), "GF": r.get("goalsFor"),
                  "GA": r.get("goalsAgainst"), "GD": r.get("goalDifference"), "Pts": r.get("points")}
                 for r in standings_data]
         st.dataframe(pd.DataFrame(rows), hide_index=True, use_container_width=True)
 
 # ==============================================================================
-# VIEW 2: QUANT ODDS SIMULATOR
+# VIEW 2: QUANT ODDS SIMULATOR (POWERED BY MULTI-SEASON WAREHOUSE)
 # ==============================================================================
 elif st.session_state.app_view == "⚡ Quant Odds Simulator":
     if st.button("← Back to Fixtures & Monitoring"):
@@ -276,14 +337,14 @@ elif st.session_state.app_view == "⚡ Quant Odds Simulator":
         st.rerun()
 
     st.title("⚡ Quantitative Match Odds Simulator")
-    
+
     if ratings_df is None or len(ratings_df) < 4:
         st.error("Insufficient match history to model.")
         st.stop()
 
     all_teams = sorted(ratings_df.index)
     h_idx = all_teams.index(st.session_state.selected_home) if st.session_state.selected_home in all_teams else 0
-    
+
     c_s1, c_s2, c_s3 = st.columns([2, 2, 1])
     with c_s1:
         home_team = st.selectbox("Home Team", all_teams, index=h_idx)
@@ -313,7 +374,7 @@ elif st.session_state.app_view == "⚡ Quant Odds Simulator":
     lambda_h = float(max(h_att * a_def * league_avg_xg * home_boost * elo_mult_h, 0.15))
     mu_a = float(max(a_att * h_def * league_avg_xga * away_drag * elo_mult_a, 0.15))
 
-    # Grid calculation: expanded to 10 goals and normalized to sum to 1.0 (100%)
+    # Extended 10-Goal Poisson Calculation (Sums accurately to 100%)
     max_g = 10
     h_dist = [poisson.pmf(i, lambda_h) for i in range(max_g)]
     a_dist = [poisson.pmf(j, mu_a) for j in range(max_g)]
@@ -330,14 +391,18 @@ elif st.session_state.app_view == "⚡ Quant Odds Simulator":
     p_u25 = 1.0 - p_o25
     p_btts = float(sum(grid[i][j] for i in range(1, max_g) for j in range(1, max_g)))
 
-    # TOP 2 HIGH CONVICTION PICKS GUARANTEED FOR EVERY MATCH
+    # Exact multi-season match counts for each club
+    h_sample = ratings_df.loc[home_team, "sample_size"] if home_team in ratings_df.index else 0
+    a_sample = ratings_df.loc[away_team, "sample_size"] if away_team in ratings_df.index else 0
+
+    # TOP 2 HIGH CONVICTION SELECTIONS GUARANTEED PER FIXTURE
     pick_pool = [
-        {"name": "Over 1.5 Goals", "prob": p_o15, "edge": p_o15 - 0.74, "basis": "High-Volume Scoring Expectancy"},
-        {"name": "Under 2.5 Goals", "prob": p_u25, "edge": p_u25 - 0.48, "basis": "Low xG & Defensive Solidity"},
-        {"name": "Over 2.5 Goals", "prob": p_o25, "edge": p_o25 - 0.52, "basis": "High Goal Expectancy (xG > 2.5)"},
-        {"name": f"{home_team} Win (1)", "prob": p_h, "edge": p_h - 0.44, "basis": "Home Advantage & Elo Supremacy"},
-        {"name": f"{away_team} Win (2)", "prob": p_a, "edge": p_a - 0.32, "basis": "Away Tactical & Elo Supremacy"},
-        {"name": "Both Teams To Score (BTTS Yes)", "prob": p_btts, "edge": p_btts - 0.51, "basis": "Symmetric Attacking Strengths"},
+        {"name": "Over 1.5 Goals", "prob": p_o15, "edge": p_o15 - 0.74, "basis": "Multi-Season Scoring Volume Trend"},
+        {"name": "Under 2.5 Goals", "prob": p_u25, "edge": p_u25 - 0.48, "basis": "Defensive Structure & Suppressed xG"},
+        {"name": "Over 2.5 Goals", "prob": p_o25, "edge": p_o25 - 0.52, "basis": "High Goal Expectancy (xG > 2.50)"},
+        {"name": f"{home_team} Win (1)", "prob": p_h, "edge": p_h - 0.44, "basis": f"Home Advantage + Elo Supremacy ({elo_h} vs {elo_a})"},
+        {"name": f"{away_team} Win (2)", "prob": p_a, "edge": p_a - 0.32, "basis": f"Away Tactical + Elo Supremacy ({elo_a} vs {elo_h})"},
+        {"name": "Both Teams To Score (BTTS Yes)", "prob": p_btts, "edge": p_btts - 0.51, "basis": "Symmetric Multi-Year Attack Alignment"},
     ]
     ranked_picks = sorted(pick_pool, key=lambda x: (x["edge"], x["prob"]), reverse=True)[:2]
 
@@ -356,14 +421,17 @@ elif st.session_state.app_view == "⚡ Quant Odds Simulator":
         f"- **Conviction Basis:** {ranked_picks[1]['basis']}"
     )
 
-    # HEADERS / KPI CARDS DISPLAYING EXACT SAMPLE DATA
-    h_sample = ratings_df.loc[home_team, "sample_size"] if home_team in ratings_df.index else len(finished_df)
-    a_sample = ratings_df.loc[away_team, "sample_size"] if away_team in ratings_df.index else len(finished_df)
-
-    st.subheader("Data Depth & Club Profile Audit")
-    ctx_c1, ctx_c2 = st.columns(2)
-    ctx_c1.info(f"**{home_team}** | Elo: `{elo_h}` | Active Matches Ingested: **{h_sample} games** | Weighted Form: **Att {h_att:.2f} / Def {h_def:.2f}**")
-    ctx_c2.info(f"**{away_team}** | Elo: `{elo_a}` | Active Matches Ingested: **{a_sample} games** | Weighted Form: **Att {a_att:.2f} / Def {a_def:.2f}**")
+    # AUDIT KPI SECTION DISPLAYING TOTAL 5-YEAR + LIVE MATCHES USED
+    st.subheader("Data Depth & Master Dataset Audit")
+    kpi_col1, kpi_col2 = st.columns(2)
+    kpi_col1.info(
+        f"**{home_team}** | Club Matches Ingested: **{h_sample} matches** (5 Seasons + Live) | "
+        f"Elo: `{elo_h}` | Rating: **Att {h_att:.2f} / Def {h_def:.2f}**"
+    )
+    kpi_col2.info(
+        f"**{away_team}** | Club Matches Ingested: **{a_sample} matches** (5 Seasons + Live) | "
+        f"Elo: `{elo_a}` | Rating: **Att {a_att:.2f} / Def {a_def:.2f}**"
+    )
 
     sc1, sc2, sc3, sc4, sc5 = st.columns(5)
     sc1.metric(f"xG: {home_team}", f"{lambda_h:.2f}")
@@ -401,10 +469,10 @@ elif st.session_state.app_view == "⚡ Quant Odds Simulator":
 # ==============================================================================
 elif st.session_state.app_view == "📈 Model Accuracy & Evaluation":
     st.title("📈 Model Evaluation & Real-Time Performance Audit")
-    st.caption("Validation on recent finished fixtures using exponential recency weighting.")
+    st.caption("Validation evaluated against the master multi-season database.")
 
-    if finished_df.empty or len(finished_df) < 15:
-        st.info("Insufficient finished fixtures to build validation sample.")
+    if master_warehouse.empty or len(master_warehouse) < 30:
+        st.info("Insufficient finished fixtures in master warehouse.")
         st.stop()
 
     market_choice = st.selectbox(
@@ -420,7 +488,7 @@ elif st.session_state.app_view == "📈 Model Accuracy & Evaluation":
     )
 
     eval_results = []
-    eval_subset = finished_df.tail(30).copy()
+    eval_subset = master_warehouse.tail(50).copy()
 
     actual_target_count = 0
     predicted_target_count = 0
@@ -542,7 +610,7 @@ elif st.session_state.app_view == "📈 Model Accuracy & Evaluation":
         })
 
     eval_df = pd.DataFrame(eval_results)
-    
+
     if not eval_df.empty:
         total_eval = len(eval_df)
         if market_choice in ["Both Teams To Score (BTTS)", "Goalless Draw (Exact 0-0)", "Any Draw (X)", "Over / Under 1.5 Goals", "Over / Under 2.5 Goals"]:
@@ -571,21 +639,13 @@ else:
     st.title("🎯 5-Year Empirical Market Benchmark & Top 2 Selection")
     st.caption("Benchmarking ~1,900 fixtures across 5 completed seasons.")
 
-    csv_div = CSV_LEAGUE_MAP.get(league_code)
-    if not csv_div:
-        st.warning("Please switch competition to Premier League, Serie A, La Liga, Bundesliga, or Ligue 1.")
+    if historical_5yr_df.empty:
+        st.error("Historical dataset not loaded.")
         st.stop()
 
-    with st.spinner("Ingesting 5-year historical match data..."):
-        hist_df = fetch_five_year_historical_dataset(csv_div)
-
-    if hist_df.empty:
-        st.error("Could not load 5-year historical dataset.")
-        st.stop()
-
-    tot_m = len(hist_df)
-    fthg = hist_df["FTHG"].values
-    ftag = hist_df["FTAG"].values
+    tot_m = len(historical_5yr_df)
+    fthg = historical_5yr_df["home_goals"].values
+    ftag = historical_5yr_df["away_goals"].values
     tot_goals = fthg + ftag
 
     b_o15 = np.sum(tot_goals > 1.5) / tot_m * 100
